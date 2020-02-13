@@ -1,0 +1,16 @@
+{
+  "object": {
+    "pins": [
+      {
+        "package": "SlidableTabPageController",
+        "repositoryURL": "https://github.com/Chylis/SlidableTabPageController.git",
+        "state": {
+          "branch": null,
+          "revision": "c35665ab46d6ef9fba3468b91f911288483367e9",
+          "version": "1.0.0"
+        }
+      }
+    ]
+  },
+  "version": 1
+}
