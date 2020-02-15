@@ -1,52 +1,5 @@
-//
-//  SlidableTabView.swift
-//  TabbenClient
-//
-//  Created by Magnus Eriksson on 2020-02-13.
-//  Copyright © 2020 Magnus Eriksson. All rights reserved.
-//
-
 import SwiftUI
 import SlidableTabPageController
-
-public struct Config {
-    public var indexBarPosition: SlidableTabPageController.IndexBarPosition
-    public var indexBarElementColor: UIColor
-    public var indexBarElementHighlightedColor: UIColor
-    public var maxNumberOfIndexBarElementsPerScreen: Double
-    
-    public init(indexBarPosition: SlidableTabPageController.IndexBarPosition = .top,
-                maxNumberOfIndexBarElementsPerScreen: Double = 3.5,
-                indexBarElementColor: UIColor = .black,
-                indexBarElementHighlightedColor: UIColor = .red) {
-        self.indexBarPosition = indexBarPosition
-        self.maxNumberOfIndexBarElementsPerScreen = maxNumberOfIndexBarElementsPerScreen
-        self.indexBarElementColor = indexBarElementColor
-        self.indexBarElementHighlightedColor = indexBarElementHighlightedColor
-    }
-    
-    func apply(_ vc: SlidableTabPageController) {
-        vc.indexBarElementColor = indexBarElementColor
-        vc.indexBarElementHighlightedColor = indexBarElementHighlightedColor
-        if vc.maxNumberOfIndexBarElementsPerScreen != maxNumberOfIndexBarElementsPerScreen {
-            vc.maxNumberOfIndexBarElementsPerScreen = maxNumberOfIndexBarElementsPerScreen
-        }
-        if vc.indexBarPosition != indexBarPosition {
-            vc.indexBarPosition = indexBarPosition
-        }
-    }
-}
-
-public extension SlidableTabPageControllerPage {
-    init<ViewType: View>(indexBarElement: IndexBarElement, view: ViewType) {
-        self.init(indexBarElement: indexBarElement,
-                  contentViewController: UIHostingController(rootView: view))
-    }
-}
-
-
-
-
 
 
 public final class SlidableTabViewCoordinator: SlidableTabPageControllerDelegate {
@@ -57,21 +10,49 @@ public final class SlidableTabViewCoordinator: SlidableTabPageControllerDelegate
     }
     
     public func slidableTabPageController(_ slidableTabPageController: SlidableTabPageController,
-                                          didNavigateFrom oldPage: Int,
-                                          to newPage: Int) {
+                                          didNavigateFrom oldPage: Int, to newPage: Int) {
         currentPageNumber?.wrappedValue = newPage
     }
 }
 
+
 public struct SlidableTabView: UIViewControllerRepresentable {
+    public struct Config {
+        public var indexBarPosition: SlidableTabPageController.IndexBarPosition
+        public var indexBarElementColor: UIColor
+        public var indexBarElementHighlightedColor: UIColor
+        public var maxNumberOfIndexBarElementsPerScreen: Double
+        
+        public init(indexBarPosition: SlidableTabPageController.IndexBarPosition = .top,
+                    maxNumberOfIndexBarElementsPerScreen: Double = 3.5,
+                    indexBarElementColor: UIColor = .black,
+                    indexBarElementHighlightedColor: UIColor = .red) {
+            self.indexBarPosition = indexBarPosition
+            self.maxNumberOfIndexBarElementsPerScreen = maxNumberOfIndexBarElementsPerScreen
+            self.indexBarElementColor = indexBarElementColor
+            self.indexBarElementHighlightedColor = indexBarElementHighlightedColor
+        }
+        
+        func apply(_ vc: SlidableTabPageController) {
+            vc.indexBarElementColor = indexBarElementColor
+            vc.indexBarElementHighlightedColor = indexBarElementHighlightedColor
+            if vc.maxNumberOfIndexBarElementsPerScreen != maxNumberOfIndexBarElementsPerScreen {
+                vc.maxNumberOfIndexBarElementsPerScreen = maxNumberOfIndexBarElementsPerScreen
+            }
+            if vc.indexBarPosition != indexBarPosition {
+                vc.indexBarPosition = indexBarPosition
+            }
+        }
+    }
+    
     public let config: Config
     public let pages: [SlidableTabPageControllerPage]
     public var currentPageNumber: Binding<Int>?
-
+    
     public init(config: Config, pages: [SlidableTabPageControllerPage], currentPageNumber: Binding<Int>? = nil) {
-      self.config = config
-      self.pages = pages
-      self.currentPageNumber = currentPageNumber
+        self.config = config
+        self.pages = pages
+        self.currentPageNumber = currentPageNumber
     }
     
     // SwiftUI creates and retains our coordinator object and stores it in the context that
@@ -125,13 +106,13 @@ public struct SlidableTabView: UIViewControllerRepresentable {
 }
 
 
+//MARK: - Preview Provider
 
-
-
+#if DEBUG
 struct TestView: View {
-    let config = Config()
+    let config = SlidableTabView.Config()
     @State var currentPageNumber: Int = 0
-
+    
     let pages: [SlidableTabPageControllerPage] = [
         SlidableTabPageControllerPage(indexBarElement: .title("First"), view: Text("test1")),
         SlidableTabPageControllerPage(indexBarElement: .title("Second"), view: Text("test2")),
@@ -139,7 +120,7 @@ struct TestView: View {
                                       view: Text("test3")),
         SlidableTabPageControllerPage(indexBarElement: .title("Fourth"), view: Text("test4"))
     ]
-
+    
     var body: some View {
         VStack {
             SlidableTabView(config: config,
@@ -151,8 +132,10 @@ struct TestView: View {
 }
 
 struct SlidableTabView_Previews : PreviewProvider {
-
+    
     static var previews: some View {
         TestView()
     }
 }
+
+#endif
