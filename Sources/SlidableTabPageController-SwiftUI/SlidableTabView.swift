@@ -1,12 +1,13 @@
 import SwiftUI
 import SlidableTabPageController
 
-
 public final class SlidableTabViewCoordinator: SlidableTabPageControllerDelegate {
     public var currentPageNumber: Binding<Int>?
+    public var pageHashes: [Int]
     
-    init(currentPageNumber: Binding<Int>?) {
+    init(currentPageNumber: Binding<Int>?, pageHashes: [Int]) {
         self.currentPageNumber = currentPageNumber
+        self.pageHashes = pageHashes
     }
     
     public func slidableTabPageController(_ slidableTabPageController: SlidableTabPageController,
@@ -46,24 +47,30 @@ public struct SlidableTabView: UIViewControllerRepresentable {
     }
     
     public let config: Config
-    public let pages: [SlidableTabPageControllerPage]
+    public let pages: [SlidableTabViewPage]
     public var currentPageNumber: Binding<Int>?
     
-    public init(config: Config, pages: [SlidableTabPageControllerPage], currentPageNumber: Binding<Int>? = nil) {
+    public init(config: Config, pages: [SlidableTabViewPage], currentPageNumber: Binding<Int>? = nil) {
         self.config = config
         self.pages = pages
         self.currentPageNumber = currentPageNumber
     }
     
-    // SwiftUI creates and retains our coordinator object and stores it in the context that
-    // is passed down to the two UIViewControllerRepresentable protocol methods.
+    // SwiftUI calls the makeCoordinator() method before makeUIViewController(context:),
+    // so that you have access to the coordinator object when configuring your view controller.
+    // The coordinator is retained and stored it in the context that is passed down to the two UIViewControllerRepresentable protocol methods.
+    // You can use this coordinator to implement common Cocoa patterns, such as delegates, data sources, and responding to user events via target-action.
     public func makeCoordinator() -> SlidableTabViewCoordinator {
-        SlidableTabViewCoordinator(currentPageNumber: currentPageNumber)
+        return SlidableTabViewCoordinator(currentPageNumber: currentPageNumber, pageHashes: pages.map { $0.hashValue })
     }
     
-    // The vc we create here is also retained by SwiftUI
+    // SwiftUI calls this method a single time when it’s ready to display the view,
+    // and then manages the view controller’s life cycle.
+    // The vc we create here is retained by SwiftUI.
     public func makeUIViewController(context: UIViewControllerRepresentableContext<SlidableTabView>) ->  SlidableTabPageController {
-        let vc = SlidableTabPageControllerFactory.make(pages: pages)
+        let vc = SlidableTabPageControllerFactory.make(pages: pages.map { page in
+            SlidableTabPageControllerPage(indexBarElement: page.indexBarElement, view: page.view)
+        })
         // Use the context.coordinator to store stuff we wish to retain...
         context.coordinator.currentPageNumber = currentPageNumber
         vc.delegate = context.coordinator
@@ -72,35 +79,35 @@ public struct SlidableTabView: UIViewControllerRepresentable {
         return vc
     }
     
+    // SwiftUI calls this method on re-renders. Here you should update your view controller, if required...
     public func updateUIViewController(_ vc: SlidableTabPageController,
                                        context: UIViewControllerRepresentableContext<SlidableTabView>) {
-        
-        config.apply(vc)
-        context.coordinator.currentPageNumber = currentPageNumber
-        
+        let currentHashes = pages.map { $0.hashValue }
+        let oldHashes = context.coordinator.pageHashes
         var hasModifiedPages = false
-        if pages.count != vc.pages.count {
+        
+        if currentHashes.count != oldHashes.count {
             hasModifiedPages = true
         } else {
-            // We are unable to check if the contents of a page has been changed, since:
-            // 1) the content view controller will be a new UIHostingViewController instance every re-render, thus always being marked as dirty
-            // 2) the content view is is a struct, thus having no identity of its own...
-            // Therefore we check if the index bar element of each page has been changed, and if so we update the vc accordingly...
-            for (index, oldPage) in vc.pages.enumerated() {
-                let newPage = pages[index]
-                switch (oldPage.indexBarElement, newPage.indexBarElement) {
-                case let (.title(old), .title(new)) where old == new: ()
-                case let (.image(old1, old2), .image(new1, new2)) where old1 == new1 && old2 == new2: ()
-                case (_, _): hasModifiedPages = true
-                }
-                if hasModifiedPages {
+            for (index, pageHash) in currentHashes.enumerated() {
+                if pageHash != oldHashes[index] {
+                    hasModifiedPages = true
                     break
                 }
             }
         }
         
+        config.apply(vc)
+        context.coordinator.pageHashes = currentHashes
+        context.coordinator.currentPageNumber = currentPageNumber
+
+        // On a SwiftUI re-render, we don't want to re-populate the SlidableTabPageController's 'pages' property if no changes have occurred, since it results in a force-removal and re-population of the entire UI.
+        // However, we are unable to check if the contents of a page has been changed, since:
+        // 1) the content view controller will be a new UIHostingViewController instance (with a new memory location) every re-render (thus always being marked as dirty)
+        // 2) the content view is is a struct, thus having no identity of its own...
+        // Therefore we have added a 'hashValue' to each page, delegating the responsibility of marking a page as "dirty" to the the implementing application.
         if hasModifiedPages {
-            vc.pages = pages
+            vc.pages = pages.map { SlidableTabPageControllerPage(indexBarElement: $0.indexBarElement, view: $0.view) }
         }
     }
 }
@@ -112,15 +119,18 @@ public struct SlidableTabView: UIViewControllerRepresentable {
 struct TestView: View {
     let config = SlidableTabView.Config()
     @State var currentPageNumber: Int = 0
-    
-    let pages: [SlidableTabPageControllerPage] = [
-        SlidableTabPageControllerPage(indexBarElement: .title("First"), view: Text("test1")),
-        SlidableTabPageControllerPage(indexBarElement: .title("Second"), view: Text("test2")),
-        SlidableTabPageControllerPage(indexBarElement: .image(UIImage(named: "icon-a")!, UIImage(named: "icon-m")!),
-                                      view: Text("test3")),
-        SlidableTabPageControllerPage(indexBarElement: .title("Fourth"), view: Text("test4"))
+
+    let pages: [SlidableTabViewPage] = [
+        SlidableTabViewPage(indexBarElement: .title("First"), hashValue: 1, view: AnyView(Text("test1"))),
+        SlidableTabViewPage(indexBarElement: .title("Second"), hashValue: 1, view: AnyView(Text("test2"))),
+        SlidableTabViewPage(indexBarElement: .image(UIImage(named: "icon-a")!, UIImage(named: "icon-m")!),
+                            hashValue: 1,
+                            view: AnyView(Text("test3"))),
+        SlidableTabViewPage(indexBarElement: .title("Fourth"),
+                            hashValue: 1,
+                            view: AnyView(Text("test4")))
     ]
-    
+
     var body: some View {
         VStack {
             SlidableTabView(config: config,
@@ -132,7 +142,7 @@ struct TestView: View {
 }
 
 struct SlidableTabView_Previews : PreviewProvider {
-    
+
     static var previews: some View {
         TestView()
     }
